@@ -17,7 +17,7 @@
  * Use --newest-first when piping chat.read_messages pages (which are newest-first).
  *
  * Defaults:
- *   endpoint: http://127.0.0.1:25100/v1/chat/completions (yote herd / llama-swap)
+ *   endpoint: http://127.0.0.1:18301/herd/v1/chat/completions (yote herd router via the cell's yote-connector proxy)
  *   model:    first available from the endpoint's /v1/models
  */
 
@@ -119,7 +119,7 @@ async function main() {
   };
 
   const endpoint =
-    getArg("--endpoint") ?? process.env.REMAKE_ENDPOINT ?? "http://127.0.0.1:25100/v1/chat/completions";
+    getArg("--endpoint") ?? process.env.REMAKE_ENDPOINT ?? "http://127.0.0.1:18301/herd/v1/chat/completions";
   let model = getArg("--model") ?? process.env.REMAKE_MODEL;
   const newestFirst = args.includes("--newest-first");
 

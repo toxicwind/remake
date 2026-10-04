@@ -45,6 +45,8 @@ bun remake.ts --file transcript.json \
 
 Works with any OpenAI-compatible completions endpoint: Ollama, llama-swap, vLLM, LM Studio, OpenAI, etc.
 
+Default endpoint: `http://127.0.0.1:18301/herd/v1/chat/completions` — the hatch cell reaches the yote herd router through the yote-connector `/herd/*` proxy (the router's own `127.0.0.1:25100` is yote-local only and refuses connections from the cell). Override with `--endpoint` or `REMAKE_ENDPOINT`.
+
 ## Companion: sorry-explore
 
 `sorry-explore.ts` finds *why* it failed. `remake.ts` fixes it.
