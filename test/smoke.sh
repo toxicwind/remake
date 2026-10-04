@@ -27,4 +27,12 @@ echo "== remake-oracle.sh syntax =="
 bash -n remake-oracle.sh
 echo "remake-oracle.sh OK"
 
+
+echo "== sorry-explore classifier fixture =="
+OUT2=$(bun sorry-explore.ts --file test/fixtures/transcript-classifier.json)
+echo "$OUT2" | head -4
+echo "$OUT2" | grep -q "2 failure response" || { echo "FAIL: expected 2 failure responses"; exit 1; }
+echo "$OUT2" | grep -q "classifier refusal: 1" || { echo "FAIL: refusal not classified"; exit 1; }
+echo "$OUT2" | grep -q "classifier quarantine wrapper: 1" || { echo "FAIL: quarantine wrapper not detected"; exit 1; }
+echo "classifier fixture OK"
 echo "ALL SMOKE TESTS PASSED"

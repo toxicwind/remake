@@ -4,7 +4,8 @@
  *
  * Agents sometimes reply with failure text instead of doing the work:
  *   - "Sorry, I ran into a problem while responding. Please try again." (runtime error)
- *   - "Sorry, I can't help with this request right now..." (classifier refusal)
+ *   - "Sorry, I can't help you with this request right now..." (classifier refusal)
+ *   - "The assistant message above was replaced with a standard refusal string..." (quarantine wrapper)
  * This helper finds those moments, shows what the agent was doing when it
  * failed, and classifies the likely cause so the lane can be fixed, not scolded.
  *
@@ -16,10 +17,11 @@
  *        or a bare array of turns. Each item needs role + content (string).
  */
 
-const SORRY_PATTERNS = [
+const SORRY_PATTERNS: { id: string; label: string; rx: RegExp; cause: string; roles?: string[] }[] = [
   {
     id: "RUNTIME_ERROR",
     label: "runtime error",
+    roles: ["assistant"],
     rx: /sorry, i ran into a problem while responding/i,
     cause:
       "The runtime failed to produce a response (model hiccup, tool-result " +
@@ -29,7 +31,11 @@ const SORRY_PATTERNS = [
   {
     id: "CLASSIFIER_REFUSAL",
     label: "classifier refusal",
-    rx: /sorry, i can't help with this request right now/i,
+    roles: ["assistant"],
+    // NOTE: the canned string is "...help YOU with this request..." — an
+    // earlier revision of this regex omitted "you" and never matched.
+    // Tolerate the curly apostrophe (U+2019) the platform sometimes emits.
+    rx: /sorry, i can['\u2019]t help you with this request right now/i,
     cause:
       "The safety classifier quarantined the reply. Common on cross-chat " +
       "developer messages and on stacked adversarial phrasing. Fix: rephrase " +
@@ -38,8 +44,24 @@ const SORRY_PATTERNS = [
       "artifacts rather than the reply text.",
   },
   {
+    id: "CLASSIFIER_QUARANTINE",
+    label: "classifier quarantine wrapper",
+    // any role: the platform inserts this as a developer turn explaining that
+    // the assistant's original reply was replaced. Borrowed from the
+    // sidechat shim's REFUSAL_STRINGS (toxicwind/hatch sidechat_shim.py) —
+    // this is the ground-truth quarantine signal, stronger than matching the
+    // canned reply text.
+    rx: /replaced with a standard refusal string|safety classifiers flagged/i,
+    cause:
+      "The platform replaced the assistant's original reply with the canned " +
+      "refusal string. Treat the paired assistant refusal as a classifier " +
+      "hit, not a real answer; rephrase the triggering message and verify " +
+      "via work artifacts rather than the reply text.",
+  },
+  {
     id: "GENERIC_SORRY",
     label: "generic sorry",
+    roles: ["assistant"],
     rx: /^\s*sorry[,.]/i,
     cause:
       "A sorry-led reply that matches neither known failure shape. Read the " +
@@ -98,9 +120,10 @@ function explore(turns: Turn[]): Hit[] {
   chrono.forEach((turn, ti) => {
     for (const item of turn.items ?? []) {
       const role = String(item.role ?? "");
-      if (role !== "assistant") continue;
       const text = asText(item.content);
+      if (!text.trim()) continue;
       for (const pat of SORRY_PATTERNS) {
+        if (pat.roles && !pat.roles.includes(role)) continue;
         if (!pat.rx.test(text)) continue;
         const ctx: Hit["contextBefore"] = [];
         for (let k = Math.max(0, ti - 2); k < ti; k++) {
